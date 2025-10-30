@@ -3,33 +3,30 @@ import math
 import sys
 import random
 
-# Inicialização do Pygame
 pygame.init()
 
-# Configurações da tela
+# Janela
 LARGURA, ALTURA = 1000, 800
 TELA = pygame.display.set_mode((LARGURA, ALTURA))
-pygame.display.set_caption("Animação do Sistema Solar - Transformações Geométricas")
+pygame.display.set_caption("Animação do Sistema Solar")
 
-# Cores (R, G, B)
+# Cores
 PRETO = (0, 0, 0)
-AMARELO = (255, 215, 0)   # Sol
-AZUL = (0, 100, 255)      # Terra
-VERMELHO = (220, 20, 60)  # Marte
-LARANJA = (255, 140, 0)   # Mercúrio
-VERDE = (50, 205, 50)     # Vênus
-CINZA = (169, 169, 169)   # Lua
+AMARELO = (255, 215, 0)
+AZUL = (0, 100, 255)
+VERMELHO = (220, 20, 60)
+LARANJA = (255, 140, 0)
+VERDE = (50, 205, 50)
+CINZA = (169, 169, 169)
 BRANCO = (255, 255, 255)
 
-# Centro da tela (posição do Sol)
+# Centro e relógio
 CENTRO_X, CENTRO_Y = LARGURA // 2, ALTURA // 2
-
-# Relógio para controlar FPS
 RELOGIO = pygame.time.Clock()
 
-# ------- CENÁRIO: estrelas, meteoros, cometas e "ETs" -------
+# CENÁRIO: estrelas, meteoros, cometas e "ETs"
 STAR_COUNT = 120
-SHOOTING_STAR_CHANCE_PER_SEC = 0.02  # probabilidade por segundo de surgir um meteorito
+SHOOTING_STAR_CHANCE_PER_SEC = 0.02
 COMET_CHANCE_PER_SEC = 0.01
 ET_CHANCE_PER_SEC = 0.008
 
@@ -82,13 +79,9 @@ def spawn_et():
     vy = random.uniform(-60, 60)
     return {'x': cx, 'y': cy, 'vx': vx, 'vy': vy, 't': 0.0}
 
-# Dados dos planetas: vamos usar os 8 principais do Sistema Solar
-# Cada planeta tem: nome, raio_orbita (visual), raio_planeta (visual),
-# periodo_orbital_real (dias), periodo_rotacao_real (dias), cor
-# Vamos escalar os períodos orbitais de forma que Mercúrio completa
-# uma volta em 5 segundos no jogo; os demais manterão a proporção real.
-MERCURIO_GAME_PERIOD = 5.0  # segundos para uma volta de Mercúrio no jogo
-MERCURIO_REAL_DAYS = 88.0   # dias reais (período orbital)
+# Planetas (valores visuais e períodos reais)
+MERCURIO_GAME_PERIOD = 5.0
+MERCURIO_REAL_DAYS = 88.0
 
 # Lista de planetas com períodos reais aproximados (dias)
 PLANETAS = [
@@ -103,29 +96,20 @@ PLANETAS = [
     {"nome": "Netuno",   "raio_orbita": 390, "raio_planeta": 12, "periodo_real": 60190.0,"rotacao_real_days": 0.67,  "cor": (100,120,255)},
 ]
 
-# Calcular velocidades orbitais (rad/s) proporcionalmente a Mercúrio
+# Velocidades orbitais e rotações
 for p in PLANETAS:
     game_period = (p["periodo_real"] / MERCURIO_REAL_DAYS) * MERCURIO_GAME_PERIOD
-    # velocidade angular para completar 2*pi rad em `game_period` segundos
     p["vel_orbital"] = 2 * math.pi / game_period
 
-# Rotação: mapear proporcionalmente às rotações reais, mas compressas para o jogo.
-# Defina quanto a Terra completa uma rotação no jogo (em segundos). Os demais seguem a
-# proporção real (rot_days), ou seja: periodo_jogo = rot_days * EARTH_GAME_DAY.
-EARTH_GAME_DAY = 2.0  # segundos no jogo que correspondem a 1 dia da Terra (ajustável)
-
-# Limites amplos apenas para evitar divisão por zero; tentamos não 'capar' as velocidades
+EARTH_GAME_DAY = 2.0
 MIN_ROT_VEL = 0.01
 MAX_ROT_VEL = 20.0
-
 for p in PLANETAS:
     rot_days_raw = p.get("rotacao_real_days", 1.0)
     sign = -1.0 if rot_days_raw < 0 else 1.0
     rot_days = max(0.01, abs(rot_days_raw))
-    # período de rotação no jogo (segundos)
     periodo_rotacao_jogo = rot_days * EARTH_GAME_DAY
     vel = sign * (2 * math.pi) / periodo_rotacao_jogo
-    # aplicar limites amplos
     vel_mag = max(MIN_ROT_VEL, min(abs(vel), MAX_ROT_VEL))
     p["vel_rotacao"] = math.copysign(vel_mag, vel)
 
@@ -139,43 +123,23 @@ LUA = {
 
 # Função para desenhar planeta com rotação própria (textura simples com mancha)
 def desenhar_planeta_com_rotacao(superficie, cor, raio, centro, angulo_rotacao):
-    # Desenha contorno (borda) para destaque e depois o planeta para melhor definição
-    borda_cor = (0, 0, 0)
-    pygame.draw.circle(superficie, borda_cor, centro, raio + 1)
+    pygame.draw.circle(superficie, (0, 0, 0), centro, raio + 1)
     pygame.draw.circle(superficie, cor, centro, raio)
-    # Desenha uma seta branca na superfície que indica o local/ângulo da rotação
-    # A seta fica posicionada na borda do planeta em direção ao ângulo de rotação
     ux = math.cos(angulo_rotacao)
     uy = math.sin(angulo_rotacao)
-
-    # Ponto de origem (ligação na superfície, um pouco dentro) e ponta da seta (fora da superfície)
-    origem_x = centro[0] + (raio * 0.6) * ux
-    origem_y = centro[1] + (raio * 0.6) * uy
-    ponta_x = centro[0] + (raio * 1.25) * ux
-    ponta_y = centro[1] + (raio * 1.25) * uy
-
-    # Desenha apenas o chevron (cabeça da seta) do lado de fora do planeta
-    # Posicionamos a ponta levemente fora da superfície e desenhamos um triângulo pequeno
     chevron_dist = raio * 1.15
     ponta_x = centro[0] + chevron_dist * ux
     ponta_y = centro[1] + chevron_dist * uy
-
-    # Tamanho do chevron proporcional ao planeta (menor que antes)
     chevron_len = max(3, int(raio * 0.45))
     chevron_w = max(2, int(raio * 0.3))
-
-    # Calcula base do triângulo (dois pontos atrás da ponta, formando o chevron)
     base_center_x = ponta_x - chevron_len * ux
     base_center_y = ponta_y - chevron_len * uy
     perp_x = -uy
     perp_y = ux
-
     left_x = base_center_x + chevron_w * perp_x
     left_y = base_center_y + chevron_w * perp_y
     right_x = base_center_x - chevron_w * perp_x
     right_y = base_center_y - chevron_w * perp_y
-
-    # Desenha o triângulo branco (chevron) sem haste
     pygame.draw.polygon(
         superficie,
         (255, 255, 255),
